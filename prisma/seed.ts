@@ -2,6 +2,9 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PERMISSIONS, SYSTEM_ROLES } from "../src/shared/auth/permission-registry";
+import { loadEnv } from "./load-env";
+
+loadEnv();
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set — copy .env.example to .env first.");

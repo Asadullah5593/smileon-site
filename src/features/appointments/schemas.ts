@@ -15,8 +15,13 @@ export const appointmentRequestSchema = z.object({
   preferredDate: z.iso.date().optional().or(z.literal("")),
   preferredTime: z.string().max(20).optional().or(z.literal("")),
   message: z.string().max(2000).optional().or(z.literal("")),
-  /** Honeypot: real people leave it empty, bots fill everything in. */
-  website: z.string().max(0).optional(),
+  /**
+   * Honeypot: real people leave it empty, bots fill everything in. It must
+   * *accept* a filled value — the route silently discards those submissions, so
+   * a bot sees the same 201 a human does instead of a validation error telling
+   * it what to fix.
+   */
+  website: z.string().max(200).optional(),
 });
 
 export const contactMessageSchema = z.object({
@@ -25,7 +30,8 @@ export const contactMessageSchema = z.object({
   phone: z.string().trim().max(30).optional().or(z.literal("")),
   subject: z.string().trim().max(160).optional().or(z.literal("")),
   message: z.string().trim().min(10, "Tell us a little more.").max(4000),
-  website: z.string().max(0).optional(),
+  /** Honeypot — see the note on `appointmentRequestSchema.website`. */
+  website: z.string().max(200).optional(),
 });
 
 export const appointmentListQuerySchema = listQuerySchema.extend({

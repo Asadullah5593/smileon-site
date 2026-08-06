@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { MapPin, Phone } from "lucide-react";
+import { Skeleton } from "@/shared/ui/primitives/skeleton";
 import {
   getPrimaryLocation,
   getPublishedServices,
@@ -23,9 +25,13 @@ export default async function ContactPage() {
           Tell us when suits you and we&rsquo;ll call to confirm.
         </p>
         <div className="mt-8">
-          <AppointmentForm
-            services={services.map((s) => ({ id: s.id, title: s.title, slug: s.slug }))}
-          />
+          {/* The form reads ?service= via useSearchParams, so it needs a
+              boundary for the rest of the page to stay prerendered. */}
+          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+            <AppointmentForm
+              services={services.map((s) => ({ id: s.id, title: s.title, slug: s.slug }))}
+            />
+          </Suspense>
         </div>
       </div>
 
