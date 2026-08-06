@@ -1,0 +1,36 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: smileon
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-smileon}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD:-smileon}"]
+      interval: 10s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-smileon}@db:3306/smileon
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in your environment}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      STORAGE_DRIVER: local
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/public/uploads
+
+volumes:
+  db-data:
+  uploads:
