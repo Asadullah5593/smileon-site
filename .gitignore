@@ -51,6 +51,3 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
-
-# agent tooling (regenerated locally)
-CLAUDE.md
