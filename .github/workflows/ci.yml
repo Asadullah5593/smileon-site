@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: mysql://root:smileon@127.0.0.1:3306/smileon_ci
+      SHADOW_DATABASE_URL: mysql://root:smileon@127.0.0.1:3306/smileon_ci_shadow
       AUTH_SECRET: ci-secret-value-at-least-16-chars
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: 1
