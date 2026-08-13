@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { z } from "zod";
 import { prisma } from "@/shared/db/prisma";
 import { verifyPassword } from "@/shared/auth/password";
+import { clientKey, rateLimit } from "@/shared/api/rate-limit";
 
 declare module "next-auth" {
   interface Session {
@@ -37,9 +38,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(raw) {
+      async authorize(raw, request) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
+
+        // Throttle password guessing per client. Returning null rather than
+        // letting the error escape keeps the response identical to a wrong
+        // password, so a blocked attacker learns nothing from the difference.
+        try {
+          rateLimit(clientKey(request, "login"), 10, 5 * 60_000);
+        } catch {
+          console.warn("[auth] login rate limit hit");
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email.toLowerCase() },
@@ -69,7 +80,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger }) {
       if (user) {
         token.sub = user.id;
-        token.permissionsVersion = (user as { permissionsVersion?: number }).permissionsVersion ?? 0;
+        token.permissionsVersion =
+          (user as { permissionsVersion?: number }).permissionsVersion ?? 0;
       }
       if (trigger === "update" && token.sub) {
         const fresh = await prisma.user.findUnique({

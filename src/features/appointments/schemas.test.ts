@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { appointmentRequestSchema, contactMessageSchema } from "@/features/appointments/schemas";
+import {
+  appointmentListQuerySchema,
+  appointmentRequestSchema,
+} from "@/features/appointments/schemas";
 
 const valid = { name: "Ayesha Khan", phone: "0300 1234567" };
 
@@ -35,18 +38,23 @@ describe("appointmentRequestSchema", () => {
   });
 });
 
-describe("contactMessageSchema", () => {
-  const message = { name: "Ali", email: "ali@example.com", message: "I would like a check-up." };
-
-  it("accepts a complete message", () => {
-    expect(contactMessageSchema.safeParse(message).success).toBe(true);
+describe("appointmentListQuerySchema", () => {
+  it("defaults to the first page", () => {
+    expect(appointmentListQuerySchema.parse({})).toMatchObject({ page: 1, pageSize: 20 });
   });
 
-  it("rejects a too-short message", () => {
-    expect(contactMessageSchema.safeParse({ ...message, message: "hi" }).success).toBe(false);
+  it("accepts an ISO date range", () => {
+    const result = appointmentListQuerySchema.safeParse({ from: "2026-01-01", to: "2026-01-31" });
+    expect(result.success).toBe(true);
   });
 
-  it("accepts a filled honeypot", () => {
-    expect(contactMessageSchema.safeParse({ ...message, website: "spam" }).success).toBe(true);
+  it("rejects a malformed date so the export can't be fed junk", () => {
+    expect(appointmentListQuerySchema.safeParse({ from: "01/01/2026" }).success).toBe(false);
+  });
+
+  it("rejects an unknown status", () => {
+    expect(appointmentListQuerySchema.safeParse({ appointmentStatus: "PENDING" }).success).toBe(
+      false,
+    );
   });
 });

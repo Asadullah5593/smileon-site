@@ -36,10 +36,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   if (response.status === 204) return undefined as T;
 
-  const payload = (await response.json().catch(() => null)) as
-    | ApiSuccess<T>
-    | ApiFailure
-    | null;
+  const payload = (await response.json().catch(() => null)) as ApiSuccess<T> | ApiFailure | null;
 
   if (!response.ok || !payload || "error" in payload) {
     const error = payload && "error" in payload ? payload.error : null;
@@ -55,7 +52,9 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 }
 
 /** Build a querystring, dropping empty values so URLs stay clean. */
-export function toQueryString(params: Record<string, string | number | boolean | undefined | null>) {
+export function toQueryString(
+  params: Record<string, string | number | boolean | undefined | null>,
+) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;

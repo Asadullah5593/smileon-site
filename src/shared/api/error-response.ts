@@ -8,11 +8,12 @@ import type { ApiFailure } from "@/shared/api/response";
  * Error → HTTP mapping, kept in its own module (free of auth/db imports) so it
  * stays cheap to unit-test and safe to reuse from any handler.
  */
-export function toErrorResponse(error: unknown): NextResponse<ApiFailure> {
+/**
+ * `requestId` is echoed in the body for 5xx so a user can quote it and the
+ * matching log line can be found — the message itself stays deliberately vague.
+ */
+export function toErrorResponse(error: unknown, requestId?: string): NextResponse<ApiFailure> {
   const mapped = normalizeError(error);
-
-  // 5xx means we got it wrong, not the caller — make sure it reaches the logs.
-  if (mapped.status >= 500) console.error("[api] unhandled error", error);
 
   return NextResponse.json<ApiFailure>(
     {
@@ -20,6 +21,7 @@ export function toErrorResponse(error: unknown): NextResponse<ApiFailure> {
         message: mapped.message,
         code: mapped.code,
         ...(mapped.details === undefined ? {} : { details: mapped.details }),
+        ...(mapped.status >= 500 && requestId ? { requestId } : {}),
       },
     },
     { status: mapped.status },

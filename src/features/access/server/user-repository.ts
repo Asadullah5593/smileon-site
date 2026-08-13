@@ -4,7 +4,6 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/api/err
 import { paginate } from "@/shared/api/response";
 import { toOrderBy, toSkipTake } from "@/shared/api/list-query";
 import { hashPassword } from "@/shared/auth/password";
-import { bumpPermissionsVersion } from "@/shared/auth/permissions";
 import { isKnownPermission } from "@/shared/auth/permission-registry";
 import { recordAudit } from "@/shared/audit/audit-log";
 import type {
@@ -215,9 +214,9 @@ export async function deleteUser(id: string, actorId: string) {
 }
 
 export async function setUserActive(id: string, isActive: boolean, actorId: string) {
-  const user = await updateUser(id, { isActive }, actorId);
-  await bumpPermissionsVersion([id]);
-  return user;
+  // `updateUser` already increments permissionsVersion, which is what forces a
+  // live session to re-resolve — no second bump needed here.
+  return updateUser(id, { isActive }, actorId);
 }
 
 async function roleIdsIncludeSuperAdmin(roleIds: string[]) {

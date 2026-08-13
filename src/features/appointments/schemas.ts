@@ -24,18 +24,11 @@ export const appointmentRequestSchema = z.object({
   website: z.string().max(200).optional(),
 });
 
-export const contactMessageSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  email: z.email("Enter a valid email address."),
-  phone: z.string().trim().max(30).optional().or(z.literal("")),
-  subject: z.string().trim().max(160).optional().or(z.literal("")),
-  message: z.string().trim().min(10, "Tell us a little more.").max(4000),
-  /** Honeypot — see the note on `appointmentRequestSchema.website`. */
-  website: z.string().max(200).optional(),
-});
-
 export const appointmentListQuerySchema = listQuerySchema.extend({
   appointmentStatus: z.enum(["NEW", "CONFIRMED", "COMPLETED", "CANCELLED"]).optional(),
+  /** Inclusive `createdAt` bounds, as `YYYY-MM-DD`. */
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
 });
 
 export const appointmentUpdateSchema = z.object({
@@ -44,6 +37,20 @@ export const appointmentUpdateSchema = z.object({
 });
 
 export type AppointmentRequestInput = z.infer<typeof appointmentRequestSchema>;
-export type ContactMessageInput = z.infer<typeof contactMessageSchema>;
 export type AppointmentListQuery = z.infer<typeof appointmentListQuerySchema>;
 export type AppointmentUpdateInput = z.infer<typeof appointmentUpdateSchema>;
+
+export type AppointmentDto = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  serviceTitle: string | null;
+  locationName: string | null;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  message: string | null;
+  status: "NEW" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  internalNote: string | null;
+  createdAt: string;
+};

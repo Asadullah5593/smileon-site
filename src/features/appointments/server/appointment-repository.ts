@@ -6,10 +6,10 @@ import { NotFoundError } from "@/shared/api/errors";
 import { clinicInbox, sendMail } from "@/shared/email";
 import { recordAudit } from "@/shared/audit/audit-log";
 import type {
+  AppointmentDto,
   AppointmentListQuery,
   AppointmentRequestInput,
   AppointmentUpdateInput,
-  ContactMessageInput,
 } from "@/features/appointments/schemas";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -51,38 +51,46 @@ export async function createAppointmentRequest(input: AppointmentRequestInput) {
   return { id: appointment.id };
 }
 
-export async function createContactMessage(input: ContactMessageInput) {
-  const message = await prisma.contactMessage.create({
-    data: {
-      name: input.name,
-      email: input.email,
-      phone: empty(input.phone),
-      subject: empty(input.subject),
-      message: input.message,
-    },
-  });
+const withRelations = {
+  service: { select: { title: true } },
+  location: { select: { name: true } },
+} satisfies Prisma.AppointmentInclude;
 
-  const inbox = clinicInbox();
-  if (inbox) {
-    await sendMail({
-      to: inbox,
-      replyTo: message.email,
-      subject: `Website enquiry — ${message.subject ?? message.name}`,
-      html: `
-        <h2>New website enquiry</h2>
-        <p><strong>From:</strong> ${escapeHtml(message.name)} (${escapeHtml(message.email)})</p>
-        ${message.phone ? `<p><strong>Phone:</strong> ${escapeHtml(message.phone)}</p>` : ""}
-        <p>${escapeHtml(message.message)}</p>
-      `,
-    });
-  }
+type AppointmentRow = Prisma.AppointmentGetPayload<{ include: typeof withRelations }>;
 
-  return { id: message.id };
+function toAppointmentDto(a: AppointmentRow): AppointmentDto {
+  return {
+    id: a.id,
+    name: a.name,
+    phone: a.phone,
+    email: a.email,
+    serviceTitle: a.service?.title ?? null,
+    locationName: a.location?.name ?? null,
+    preferredDate: a.preferredDate?.toISOString() ?? null,
+    preferredTime: a.preferredTime,
+    message: a.message,
+    status: a.status,
+    internalNote: a.internalNote,
+    createdAt: a.createdAt.toISOString(),
+  };
 }
 
-export async function listAppointments(query: AppointmentListQuery) {
-  const where: Prisma.AppointmentWhereInput = {
+/**
+ * Shared by the list and the CSV export so an export always contains exactly
+ * the rows the operator is looking at.
+ */
+function toWhere(query: AppointmentListQuery): Prisma.AppointmentWhereInput {
+  return {
     ...(query.appointmentStatus ? { status: query.appointmentStatus } : {}),
+    ...(query.from || query.to
+      ? {
+          createdAt: {
+            ...(query.from ? { gte: new Date(`${query.from}T00:00:00.000Z`) } : {}),
+            // `to` is inclusive, so take the end of that day.
+            ...(query.to ? { lte: new Date(`${query.to}T23:59:59.999Z`) } : {}),
+          },
+        }
+      : {}),
     ...(query.q
       ? {
           OR: [
@@ -93,36 +101,34 @@ export async function listAppointments(query: AppointmentListQuery) {
         }
       : {}),
   };
+}
+
+export async function listAppointments(query: AppointmentListQuery) {
+  const where = toWhere(query);
 
   const [rows, total] = await Promise.all([
     prisma.appointment.findMany({
       where,
-      include: { service: { select: { title: true } }, location: { select: { name: true } } },
+      include: withRelations,
       orderBy: { createdAt: "desc" },
       ...toSkipTake(query),
     }),
     prisma.appointment.count({ where }),
   ]);
 
-  return paginate(
-    rows.map((a) => ({
-      id: a.id,
-      name: a.name,
-      phone: a.phone,
-      email: a.email,
-      serviceTitle: a.service?.title ?? null,
-      locationName: a.location?.name ?? null,
-      preferredDate: a.preferredDate?.toISOString() ?? null,
-      preferredTime: a.preferredTime,
-      message: a.message,
-      status: a.status,
-      internalNote: a.internalNote,
-      createdAt: a.createdAt.toISOString(),
-    })),
-    total,
-    query.page,
-    query.pageSize,
-  );
+  return paginate(rows.map(toAppointmentDto), total, query.page, query.pageSize);
+}
+
+/** Every matching row, ignoring pagination — for the CSV export. */
+export async function listAppointmentsForExport(query: AppointmentListQuery) {
+  const rows = await prisma.appointment.findMany({
+    where: toWhere(query),
+    include: withRelations,
+    orderBy: { createdAt: "desc" },
+    // A hard ceiling so one export cannot pull the whole table into memory.
+    take: 5000,
+  });
+  return rows.map(toAppointmentDto);
 }
 
 export async function updateAppointment(
@@ -147,6 +153,19 @@ export async function updateAppointment(
   });
 
   return appointment;
+}
+
+export async function deleteAppointment(id: string, actorId: string) {
+  const appointment = await prisma.appointment.delete({ where: { id } }).catch(() => null);
+  if (!appointment) throw new NotFoundError("Appointment");
+
+  await recordAudit({
+    actorId,
+    action: "appointments.delete",
+    entity: "Appointment",
+    entityId: id,
+    summary: `${appointment.name} · ${appointment.phone}`,
+  });
 }
 
 function escapeHtml(value: string) {

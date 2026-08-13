@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { ExternalLink, LogOut, Menu } from "lucide-react";
+import { ExternalLink, LogOut, Menu, UserRound } from "lucide-react";
 import { Button } from "@/shared/ui/primitives/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/shared/ui/primitives/sheet";
 import {
@@ -62,6 +62,12 @@ export function AdminHeader() {
               </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {/* No permission gate — everyone can reach their own account. */}
+            <DropdownMenuItem asChild>
+              <Link href="/admin/profile">
+                <UserRound className="size-4" /> My account
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/login" })}>
               <LogOut className="size-4" /> Sign out
             </DropdownMenuItem>

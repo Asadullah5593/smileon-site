@@ -46,7 +46,14 @@ export function UsersManager() {
     queryKey: accessKeys.users(params),
     queryFn: () => usersApi.list(params),
   });
-  const { data: roles } = useQuery({ queryKey: accessKeys.roles, queryFn: rolesApi.list });
+  // Assigning a role means reading the role list. If this fails the picker
+  // would silently render empty, so surface it rather than shipping a form
+  // that quietly creates users with no roles at all.
+  const {
+    data: roles,
+    isPending: rolesPending,
+    isError: rolesFailed,
+  } = useQuery({ queryKey: accessKeys.roles, queryFn: rolesApi.list });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -147,6 +154,16 @@ export function UsersManager() {
 
           <div className="space-y-2">
             <Label>Roles</Label>
+            {rolesFailed ? (
+              <p className="text-destructive text-sm">
+                Roles could not be loaded, so none can be assigned. This usually means your account
+                is missing the <code>roles.read</code> permission — ask a super admin to grant it.
+              </p>
+            ) : rolesPending ? (
+              <p className="text-muted-foreground text-sm">Loading roles…</p>
+            ) : roles?.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No roles exist yet.</p>
+            ) : null}
             <div className="flex flex-wrap gap-3">
               {roles?.map((role) => (
                 <label key={role.id} className="flex cursor-pointer items-center gap-2 text-sm">

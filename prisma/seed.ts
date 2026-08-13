@@ -2,6 +2,7 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PERMISSIONS, SYSTEM_ROLES } from "../src/shared/auth/permission-registry";
+import { SYSTEM_ROLE_DEFINITIONS } from "../src/shared/auth/system-roles";
 import { loadEnv } from "./load-env";
 
 loadEnv();
@@ -59,65 +60,8 @@ async function syncPermissions() {
   console.log(`✔ synced ${PERMISSIONS.length} permissions`);
 }
 
-const byResource = (...resources: string[]) =>
-  PERMISSIONS.filter((p) => resources.includes(p.resource)).map((p) => p.name);
-
-const CONTENT_RESOURCES = [
-  "services",
-  "pages",
-  "posts",
-  "team",
-  "testimonials",
-  "faqs",
-  "gallery",
-  "taxonomy",
-];
-
 async function ensureSystemRoles() {
-  const definitions = [
-    {
-      slug: SYSTEM_ROLES.superAdmin,
-      name: "Super Admin",
-      description: "Full access to everything, including roles and permissions.",
-      isSuperAdmin: true,
-      permissions: [] as string[],
-    },
-    {
-      slug: SYSTEM_ROLES.administrator,
-      name: "Administrator",
-      description: "Manages content, media, enquiries, site settings and users.",
-      isSuperAdmin: false,
-      permissions: PERMISSIONS.filter((p) => p.resource !== "roles").map((p) => p.name),
-    },
-    {
-      slug: SYSTEM_ROLES.contentEditor,
-      name: "Content Editor",
-      description: "Creates and publishes content, and manages the media library.",
-      isSuperAdmin: false,
-      permissions: [...byResource(...CONTENT_RESOURCES), ...byResource("media")],
-    },
-    {
-      slug: SYSTEM_ROLES.author,
-      name: "Author",
-      description: "Writes blog posts and uploads media, but cannot publish.",
-      isSuperAdmin: false,
-      permissions: [
-        "posts.read",
-        "posts.create",
-        "posts.update",
-        "taxonomy.read",
-        "media.read",
-        "media.upload",
-      ],
-    },
-    {
-      slug: SYSTEM_ROLES.frontDesk,
-      name: "Front Desk",
-      description: "Handles appointment requests and contact messages only.",
-      isSuperAdmin: false,
-      permissions: [...byResource("appointments"), ...byResource("messages")],
-    },
-  ];
+  const definitions = SYSTEM_ROLE_DEFINITIONS;
 
   const result: Record<string, { id: string }> = {};
 
@@ -204,7 +148,8 @@ async function seedDemoContent() {
     {
       slug: "dental-implants",
       title: "Dental Implants",
-      summary: "A permanent replacement for missing teeth that looks and works like the real thing.",
+      summary:
+        "A permanent replacement for missing teeth that looks and works like the real thing.",
       duration: "60–90 minutes",
       isFeatured: true,
       sortOrder: 1,
@@ -261,26 +206,84 @@ async function seedDemoContent() {
 
   await prisma.teamMember.createMany({
     data: [
-      { slug: "dr-ayesha-khan", name: "Dr. Ayesha Khan", designation: "Cosmetic Dentist", status: "PUBLISHED", sortOrder: 1 },
-      { slug: "dr-hamza-ali", name: "Dr. Hamza Ali", designation: "Implantologist", status: "PUBLISHED", sortOrder: 2 },
-      { slug: "dr-sana-tariq", name: "Dr. Sana Tariq", designation: "Orthodontist", status: "PUBLISHED", sortOrder: 3 },
-      { slug: "dr-bilal-ahmed", name: "Dr. Bilal Ahmed", designation: "Endodontist", status: "PUBLISHED", sortOrder: 4 },
+      {
+        slug: "dr-ayesha-khan",
+        name: "Dr. Ayesha Khan",
+        designation: "Cosmetic Dentist",
+        status: "PUBLISHED",
+        sortOrder: 1,
+      },
+      {
+        slug: "dr-hamza-ali",
+        name: "Dr. Hamza Ali",
+        designation: "Implantologist",
+        status: "PUBLISHED",
+        sortOrder: 2,
+      },
+      {
+        slug: "dr-sana-tariq",
+        name: "Dr. Sana Tariq",
+        designation: "Orthodontist",
+        status: "PUBLISHED",
+        sortOrder: 3,
+      },
+      {
+        slug: "dr-bilal-ahmed",
+        name: "Dr. Bilal Ahmed",
+        designation: "Endodontist",
+        status: "PUBLISHED",
+        sortOrder: 4,
+      },
     ],
   });
 
   await prisma.testimonial.createMany({
     data: [
-      { patientName: "Farah S.", quote: "Painless, quick, and the team explained every step.", rating: 5, status: "PUBLISHED", sortOrder: 1 },
-      { patientName: "Usman R.", quote: "My implant looks completely natural. Worth every rupee.", rating: 5, status: "PUBLISHED", sortOrder: 2 },
-      { patientName: "Hina M.", quote: "Booked online in the evening and was seen the next morning.", rating: 5, status: "PUBLISHED", sortOrder: 3 },
+      {
+        patientName: "Farah S.",
+        quote: "Painless, quick, and the team explained every step.",
+        rating: 5,
+        status: "PUBLISHED",
+        sortOrder: 1,
+      },
+      {
+        patientName: "Usman R.",
+        quote: "My implant looks completely natural. Worth every rupee.",
+        rating: 5,
+        status: "PUBLISHED",
+        sortOrder: 2,
+      },
+      {
+        patientName: "Hina M.",
+        quote: "Booked online in the evening and was seen the next morning.",
+        rating: 5,
+        status: "PUBLISHED",
+        sortOrder: 3,
+      },
     ],
   });
 
   await prisma.faqItem.createMany({
     data: [
-      { question: "Do I need a referral?", answerHtml: "<p>No — you can book directly through the website or by phone.</p>", status: "PUBLISHED", sortOrder: 1 },
-      { question: "Does it hurt?", answerHtml: "<p>Most treatments are done under local anaesthetic, so you'll feel pressure but not pain.</p>", status: "PUBLISHED", sortOrder: 2 },
-      { question: "How do I pay?", answerHtml: "<p>Cash, card and bank transfer are all accepted at the clinic.</p>", status: "PUBLISHED", sortOrder: 3 },
+      {
+        question: "Do I need a referral?",
+        answerHtml: "<p>No — you can book directly through the website or by phone.</p>",
+        status: "PUBLISHED",
+        sortOrder: 1,
+      },
+      {
+        question: "Does it hurt?",
+        answerHtml:
+          "<p>Most treatments are done under local anaesthetic, so you'll feel pressure but not pain.</p>",
+        status: "PUBLISHED",
+        sortOrder: 2,
+      },
+      {
+        question: "How do I pay?",
+        answerHtml: "<p>Cash, card and bank transfer are all accepted at the clinic.</p>",
+        status: "PUBLISHED",
+        sortOrder: 3,
+      },
     ],
   });
 
@@ -299,7 +302,13 @@ async function seedDemoContent() {
 
   await prisma.siteSetting.createMany({
     data: [
-      { key: "brand", value: { name: "SmileOn Dental Clinic", tagline: "A healthier smile, handled by specialists" } },
+      {
+        key: "brand",
+        value: {
+          name: "SmileOn Dental Clinic",
+          tagline: "A healthier smile, handled by specialists",
+        },
+      },
       { key: "contact", value: { phone: "+92 300 0000000", email: "hello@smileon.pk" } },
       { key: "socials", value: { facebook: "", instagram: "", youtube: "" } },
     ],

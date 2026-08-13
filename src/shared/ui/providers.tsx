@@ -4,11 +4,23 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SessionProvider } from "next-auth/react";
-import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/shared/ui/primitives/sonner";
 import { ApiError } from "@/shared/api/http";
 
-/** App-wide client providers: data cache, URL state, theme, toasts. */
+/**
+ * App-wide client providers: session, data cache, URL state, toasts.
+ *
+ * There is deliberately no `ThemeProvider`. It was configured
+ * `defaultTheme="light" enableSystem={false}` and nothing in the app calls
+ * `setTheme`, so the theme could never be anything but light — while the
+ * before-paint `<script>` next-themes injects to apply a *varying* theme still
+ * rendered, which React 19 warns about because client-rendered scripts never
+ * execute.
+ *
+ * The `.dark` block in `globals.css` and the `dark:` utilities are untouched.
+ * Bringing dark mode back means re-adding the provider *and* a control that
+ * calls `setTheme` — without one, the provider is inert.
+ */
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -29,10 +41,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
         <NuqsAdapter>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-            {children}
-            <Toaster position="top-right" richColors closeButton />
-          </ThemeProvider>
+          {children}
+          <Toaster position="top-right" richColors closeButton />
         </NuqsAdapter>
       </QueryClientProvider>
     </SessionProvider>

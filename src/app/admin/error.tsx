@@ -10,10 +10,12 @@ import { Button } from "@/shared/ui/primitives/button";
  */
 export default function AdminError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  // Next 16: `retry()` re-fetches and re-renders the segment. `reset()` only
+  // clears the boundary, which for a failed server render just fails again.
+  retry: () => void;
 }) {
   const forbidden = error.message.toLowerCase().includes("permission");
 
@@ -29,7 +31,7 @@ export default function AdminError({
           : error.message}
       </p>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={reset}>
+        <Button variant="outline" onClick={() => retry()}>
           Try again
         </Button>
         <Button asChild>

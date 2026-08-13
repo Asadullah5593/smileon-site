@@ -30,9 +30,11 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Migrations + seed are run from the container on deploy.
+# Migrations are applied by the entrypoint on start.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Local uploads live on a volume so they survive redeploys.
 RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
@@ -42,7 +44,11 @@ USER nextjs
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0
 
+# Liveness, not readiness: a failing probe here restarts the container, and a
+# brief database blip must not do that. `/api/health/ready` is what a load
+# balancer should poll.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
 
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]

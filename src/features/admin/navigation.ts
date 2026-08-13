@@ -27,9 +27,20 @@ export const ADMIN_NAV: NavSection[] = [
       { label: "Pages", href: "/admin/pages", icon: "FileText", anyOf: ["pages.read"] },
       { label: "Blog posts", href: "/admin/posts", icon: "Newspaper", anyOf: ["posts.read"] },
       { label: "Team", href: "/admin/team", icon: "Users", anyOf: ["team.read"] },
-      { label: "Testimonials", href: "/admin/testimonials", icon: "Quote", anyOf: ["testimonials.read"] },
+      {
+        label: "Testimonials",
+        href: "/admin/testimonials",
+        icon: "Quote",
+        anyOf: ["testimonials.read"],
+      },
       { label: "FAQs", href: "/admin/faqs", icon: "CircleHelp", anyOf: ["faqs.read"] },
       { label: "Before & after", href: "/admin/gallery", icon: "Images", anyOf: ["gallery.read"] },
+      {
+        label: "Categories & tags",
+        href: "/admin/taxonomy",
+        icon: "Tags",
+        anyOf: ["taxonomy.read"],
+      },
     ],
   },
   {
@@ -39,7 +50,12 @@ export const ADMIN_NAV: NavSection[] = [
   {
     title: "Enquiries",
     items: [
-      { label: "Appointments", href: "/admin/appointments", icon: "CalendarCheck", anyOf: ["appointments.read"] },
+      {
+        label: "Appointments",
+        href: "/admin/appointments",
+        icon: "CalendarCheck",
+        anyOf: ["appointments.read"],
+      },
       { label: "Messages", href: "/admin/messages", icon: "Mail", anyOf: ["messages.read"] },
     ],
   },
@@ -48,8 +64,19 @@ export const ADMIN_NAV: NavSection[] = [
     items: [
       { label: "Locations", href: "/admin/locations", icon: "MapPin", anyOf: ["locations.read"] },
       { label: "Navigation", href: "/admin/menus", icon: "ListTree", anyOf: ["menus.read"] },
-      { label: "Banners", href: "/admin/banners", icon: "GalleryHorizontal", anyOf: ["banners.read"] },
+      {
+        label: "Banners",
+        href: "/admin/banners",
+        icon: "GalleryHorizontal",
+        anyOf: ["banners.read"],
+      },
       { label: "Settings", href: "/admin/settings", icon: "Settings", anyOf: ["settings.read"] },
+      {
+        label: "Redirects",
+        href: "/admin/redirects",
+        icon: "Shuffle",
+        anyOf: ["redirects.read"],
+      },
     ],
   },
   {

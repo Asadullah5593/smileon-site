@@ -54,7 +54,10 @@ Sign in at <http://localhost:3000/login> with the credentials printed by the see
 | `npm run db:studio` | Prisma Studio |
 | `npm run rbac:sync` | Push `permission-registry.ts` into the database |
 
-> The build runs `prisma generate` first and prerenders public pages, so **the database must be reachable at build time**.
+> The build runs `prisma generate` first. The public site is rendered at request time
+> (`export const dynamic = "force-dynamic"` in `app/(public)/layout.tsx`), so **the database does
+> not need to be reachable at build time** — `docker build` works against no database at all.
+> Speed comes from `unstable_cache` on the reads underneath, not from prerendering.
 
 ## Project layout
 
