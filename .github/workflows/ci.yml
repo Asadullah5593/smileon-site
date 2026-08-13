@@ -46,6 +46,9 @@ jobs:
 
       - run: npx prisma migrate deploy
 
+      - name: Create shadow database
+        run: echo "CREATE DATABASE IF NOT EXISTS smileon_ci_shadow;" | npx prisma db execute --stdin --url "$DATABASE_URL"
+
       # Catches a schema.prisma edit that was never turned into a migration —
       # the failure mode is a deploy that works locally and breaks in production.
       - name: Check for schema drift
