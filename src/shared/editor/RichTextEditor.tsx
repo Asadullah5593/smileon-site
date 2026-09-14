@@ -53,13 +53,48 @@ export function RichTextEditor({ label, value, onChange, placeholder }: Props) {
   if (!editor) return null;
 
   const tools = [
-    { icon: Bold, label: "Bold", run: () => editor.chain().focus().toggleBold().run(), active: editor.isActive("bold") },
-    { icon: Italic, label: "Italic", run: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive("italic") },
-    { icon: Heading2, label: "Heading 2", run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), active: editor.isActive("heading", { level: 2 }) },
-    { icon: Heading3, label: "Heading 3", run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), active: editor.isActive("heading", { level: 3 }) },
-    { icon: List, label: "Bullet list", run: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive("bulletList") },
-    { icon: ListOrdered, label: "Numbered list", run: () => editor.chain().focus().toggleOrderedList().run(), active: editor.isActive("orderedList") },
-    { icon: Quote, label: "Quote", run: () => editor.chain().focus().toggleBlockquote().run(), active: editor.isActive("blockquote") },
+    {
+      icon: Bold,
+      label: "Bold",
+      run: () => editor.chain().focus().toggleBold().run(),
+      active: editor.isActive("bold"),
+    },
+    {
+      icon: Italic,
+      label: "Italic",
+      run: () => editor.chain().focus().toggleItalic().run(),
+      active: editor.isActive("italic"),
+    },
+    {
+      icon: Heading2,
+      label: "Heading 2",
+      run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+      active: editor.isActive("heading", { level: 2 }),
+    },
+    {
+      icon: Heading3,
+      label: "Heading 3",
+      run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+      active: editor.isActive("heading", { level: 3 }),
+    },
+    {
+      icon: List,
+      label: "Bullet list",
+      run: () => editor.chain().focus().toggleBulletList().run(),
+      active: editor.isActive("bulletList"),
+    },
+    {
+      icon: ListOrdered,
+      label: "Numbered list",
+      run: () => editor.chain().focus().toggleOrderedList().run(),
+      active: editor.isActive("orderedList"),
+    },
+    {
+      icon: Quote,
+      label: "Quote",
+      run: () => editor.chain().focus().toggleBlockquote().run(),
+      active: editor.isActive("blockquote"),
+    },
     {
       icon: Link2,
       label: "Link",

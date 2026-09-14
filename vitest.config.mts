@@ -18,5 +18,6 @@ export default defineConfig({
     setupFiles: ["src/test/setup.ts"],
     exclude: [...configDefaults.exclude, "e2e/**", "src/generated/**"],
     css: true,
+    pool: "threads",
   },
 });

@@ -6,33 +6,42 @@ import { useQueryStates, parseAsInteger, parseAsString } from "nuqs";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { serviceKeys, servicesApi } from "@/features/services/api";
+import type { ServiceDto } from "@/features/services/schemas";
 import { Can, usePermissions } from "@/shared/auth/permissions-context";
+import { StatusFilter } from "@/shared/content/StatusFilter";
 import { Button } from "@/shared/ui/primitives/button";
 import { Input } from "@/shared/ui/primitives/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/primitives/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/ui/primitives/table";
-import { Skeleton } from "@/shared/ui/primitives/skeleton";
+import { ResourceTable, type ResourceColumn } from "@/shared/ui/ResourceTable";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
-const ALL = "all";
+const columns: ResourceColumn<ServiceDto>[] = [
+  {
+    header: "Title",
+    cell: (service) => (
+      <>
+        <span className="font-medium">{service.title}</span>
+        <span className="text-muted-foreground block text-xs">/{service.slug}</span>
+      </>
+    ),
+  },
+  {
+    header: "Category",
+    className: "hidden md:table-cell",
+    cell: (service) => service.categoryName ?? "—",
+  },
+  {
+    header: "Order",
+    className: "hidden sm:table-cell",
+    cell: (service) => service.sortOrder,
+  },
+  { header: "Status", cell: (service) => <StatusBadge status={service.status} /> },
+];
 
 /**
- * The reference admin list: URL-synced filters + server pagination + optimistic
- * invalidation. Copy this file when adding the next resource.
+ * The reference admin list: URL-synced filters, server pagination, and
+ * invalidation on delete. Copy this file when adding the next resource — the
+ * table shell itself lives in `shared/ui/ResourceTable`.
  */
 export function ServicesTable() {
   const queryClient = useQueryClient();
@@ -51,7 +60,7 @@ export function ServicesTable() {
     status: filters.status || undefined,
   };
 
-  const { data, isPending, isError, error } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: serviceKeys.list(params),
     queryFn: () => servicesApi.list(params),
   });
@@ -66,138 +75,65 @@ export function ServicesTable() {
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <Input
-          placeholder="Search treatments…"
-          value={filters.q}
-          onChange={(e) => setFilters({ q: e.target.value || null, page: 1 })}
-          className="max-w-xs"
-        />
-        <Select
-          value={filters.status || ALL}
-          onValueChange={(value) => setFilters({ status: value === ALL ? null : value, page: 1 })}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
-            <SelectItem value="PUBLISHED">Published</SelectItem>
-            <SelectItem value="DRAFT">Draft</SelectItem>
-            <SelectItem value="ARCHIVED">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Can permission="services.create">
-          <Button asChild className="ml-auto">
-            <Link href="/admin/services/new">
-              <Plus className="size-4" /> New treatment
-            </Link>
-          </Button>
-        </Can>
-      </div>
-
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead className="hidden md:table-cell">Category</TableHead>
-              <TableHead className="hidden sm:table-cell">Order</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isPending ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={5}>
-                    <Skeleton className="h-6 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : isError ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-destructive py-8 text-center">
-                  {error.message}
-                </TableCell>
-              </TableRow>
-            ) : data.items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground py-10 text-center">
-                  No treatments yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.items.map((service) => (
-                <TableRow key={service.id}>
-                  <TableCell>
-                    <span className="font-medium">{service.title}</span>
-                    <span className="text-muted-foreground block text-xs">/{service.slug}</span>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {service.categoryName ?? "—"}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">{service.sortOrder}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={service.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {can("services.update") ? (
-                        <Button variant="ghost" size="icon" asChild aria-label="Edit">
-                          <Link href={`/admin/services/${service.id}`}>
-                            <Pencil className="size-4" />
-                          </Link>
-                        </Button>
-                      ) : null}
-                      <Can permission="services.delete">
-                        <ConfirmDialog
-                          title={`Delete “${service.title}”?`}
-                          description="This removes the treatment from the website. It cannot be undone."
-                          onConfirm={() => remove.mutateAsync(service.id)}
-                        >
-                          <Button variant="ghost" size="icon" aria-label="Delete">
-                            <Trash2 className="text-destructive size-4" />
-                          </Button>
-                        </ConfirmDialog>
-                      </Can>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {data && data.pageCount > 1 ? (
-        <div className="flex items-center justify-between text-sm">
-          <p className="text-muted-foreground">
-            Page {data.page} of {data.pageCount} · {data.total} total
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={data.page <= 1}
-              onClick={() => setFilters({ page: data.page - 1 })}
-            >
-              Previous
+    <ResourceTable
+      columns={columns}
+      rows={data?.items}
+      isPending={isPending}
+      error={error}
+      emptyMessage="No treatments yet."
+      toolbar={
+        <>
+          <Input
+            placeholder="Search treatments…"
+            value={filters.q}
+            onChange={(e) => setFilters({ q: e.target.value || null, page: 1 })}
+            className="max-w-xs"
+          />
+          <StatusFilter
+            value={filters.status}
+            onChange={(status) => setFilters({ status, page: 1 })}
+          />
+          <Can permission="services.create">
+            <Button asChild className="ml-auto">
+              <Link href="/admin/services/new">
+                <Plus className="size-4" /> New treatment
+              </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={data.page >= data.pageCount}
-              onClick={() => setFilters({ page: data.page + 1 })}
-            >
-              Next
+          </Can>
+        </>
+      }
+      rowActions={(service) => (
+        <>
+          {can("services.update") ? (
+            <Button variant="ghost" size="icon" asChild aria-label="Edit">
+              <Link href={`/admin/services/${service.id}`}>
+                <Pencil className="size-4" />
+              </Link>
             </Button>
-          </div>
-        </div>
-      ) : null}
-    </div>
+          ) : null}
+          <Can permission="services.delete">
+            <ConfirmDialog
+              title={`Delete “${service.title}”?`}
+              description="This removes the treatment from the website. It cannot be undone."
+              onConfirm={() => remove.mutateAsync(service.id)}
+            >
+              <Button variant="ghost" size="icon" aria-label="Delete">
+                <Trash2 className="text-destructive size-4" />
+              </Button>
+            </ConfirmDialog>
+          </Can>
+        </>
+      )}
+      pagination={
+        data
+          ? {
+              page: data.page,
+              pageCount: data.pageCount,
+              total: data.total,
+              onPageChange: (page) => setFilters({ page }),
+            }
+          : undefined
+      }
+    />
   );
 }

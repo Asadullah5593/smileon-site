@@ -111,7 +111,10 @@ export async function updateRole(
   });
 
   // Anyone holding this role needs their session re-resolved.
-  const holders = await prisma.userRole.findMany({ where: { roleId: id }, select: { userId: true } });
+  const holders = await prisma.userRole.findMany({
+    where: { roleId: id },
+    select: { userId: true },
+  });
   await bumpPermissionsVersion(holders.map((h) => h.userId));
 
   await recordAudit({

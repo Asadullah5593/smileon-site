@@ -58,6 +58,75 @@ export function breadcrumbSchema(items: { name: string; url: string }[]) {
   };
 }
 
+export function articleSchema(input: {
+  headline: string;
+  url: string;
+  description?: string | null;
+  image?: string | null;
+  authorName?: string | null;
+  publishedAt?: string | null;
+  modifiedAt?: string | null;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: input.headline,
+    url: input.url,
+    ...(input.description ? { description: input.description } : {}),
+    ...(input.image ? { image: input.image } : {}),
+    ...(input.authorName ? { author: { "@type": "Person", name: input.authorName } } : {}),
+    ...(input.publishedAt ? { datePublished: input.publishedAt } : {}),
+    ...(input.modifiedAt ? { dateModified: input.modifiedAt } : {}),
+  };
+}
+
+export function personSchema(input: {
+  name: string;
+  url: string;
+  jobTitle?: string | null;
+  image?: string | null;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Physician",
+    name: input.name,
+    url: input.url,
+    ...(input.jobTitle ? { jobTitle: input.jobTitle } : {}),
+    ...(input.image ? { image: input.image } : {}),
+  };
+}
+
+/**
+ * Opening hours in the shape Google expects. `hours` is the JSON column from
+ * `Location`; closed days are simply omitted.
+ */
+export function openingHoursSchema(
+  hours: Record<string, { closed: boolean; open?: string | null; close?: string | null }>,
+) {
+  const DAY_NAMES: Record<string, string> = {
+    monday: "Monday",
+    tuesday: "Tuesday",
+    wednesday: "Wednesday",
+    thursday: "Thursday",
+    friday: "Friday",
+    saturday: "Saturday",
+    sunday: "Sunday",
+  };
+
+  return Object.entries(hours).flatMap(([day, entry]) =>
+    entry.closed || !entry.open || !entry.close || !DAY_NAMES[day]
+      ? []
+      : [
+          {
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: `https://schema.org/${DAY_NAMES[day]}`,
+            opens: entry.open,
+            closes: entry.close,
+          },
+        ],
+  );
+}
+
 export function serviceSchema(input: {
   name: string;
   description?: string | null;

@@ -17,13 +17,13 @@ export const GET = createRouteHandler(
 
 export const PATCH = createRouteHandler(
   { permission: "services.update", params: paramsSchema, body: serviceUpdateSchema },
-  async ({ params, body, viewer }) => ok(await updateService(params.id, body, viewer.id)),
+  async ({ params, body, viewer }) => ok(await updateService(params.id, body, viewer)),
 );
 
 export const DELETE = createRouteHandler(
   { permission: "services.delete", params: paramsSchema },
   async ({ params, viewer }) => {
-    await deleteService(params.id, viewer.id);
+    await deleteService(params.id, viewer);
     return noContent();
   },
 );

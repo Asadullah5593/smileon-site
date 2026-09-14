@@ -84,7 +84,10 @@ export async function uploadMedia(file: File, options: { folder?: string; userId
     thumbnailKey = `${prefix}/${stem}-thumb.webp`;
     await storage.put(
       thumbnailKey,
-      await sharp(input).resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer(),
+      await sharp(input)
+        .resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true })
+        .webp({ quality: 74 })
+        .toBuffer(),
       mimeType,
     );
   } else {
@@ -136,6 +139,19 @@ export async function listMedia(query: MediaListQuery) {
   ]);
 
   return paginate(items.map(toMediaDto), total, query.page, query.pageSize);
+}
+
+/**
+ * The folders actually in use, for the picker's filter. Derived from the rows
+ * rather than a fixed list, so a folder appears as soon as something is in it.
+ */
+export async function listMediaFolders(): Promise<string[]> {
+  const rows = await prisma.media.findMany({
+    distinct: ["folder"],
+    select: { folder: true },
+    orderBy: { folder: "asc" },
+  });
+  return rows.map((row) => row.folder);
 }
 
 export async function updateMedia(id: string, input: MediaUpdateInput, actorId: string) {

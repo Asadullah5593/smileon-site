@@ -10,5 +10,5 @@ export const GET = createRouteHandler(
 
 export const POST = createRouteHandler(
   { permission: "services.create", body: serviceCreateSchema },
-  async ({ body, viewer }) => created(await createService(body, viewer.id)),
+  async ({ body, viewer }) => created(await createService(body, viewer)),
 );

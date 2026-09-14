@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slugify, uniqueSlug } from "@/shared/utils/slug";
+import { slugify, slugifyPath, uniqueSlug } from "@/shared/utils/slug";
 
 describe("slugify", () => {
   it("lowercases and hyphenates", () => {
@@ -23,5 +23,34 @@ describe("uniqueSlug", () => {
 
   it("falls back to `item` when the input has no usable characters", async () => {
     expect(await uniqueSlug("!!!", async () => false)).toBe("item");
+  });
+
+  it("accepts a normalizer so page slugs can nest", async () => {
+    expect(await uniqueSlug("About Us/Our Values", async () => false, slugifyPath)).toBe(
+      "about-us/our-values",
+    );
+  });
+});
+
+describe("slugifyPath", () => {
+  // `slugify` runs with strict:true, which drops "/" — passing a nested path
+  // through it would silently produce "about-usour-values".
+  it("keeps the separator that plain slugify would eat", () => {
+    expect(slugify("about-us/our-values")).toBe("about-usour-values");
+    expect(slugifyPath("about-us/our-values")).toBe("about-us/our-values");
+  });
+
+  it("slugifies each segment independently", () => {
+    expect(slugifyPath("Patient Safety/4 Step Sterilisation")).toBe(
+      "patient-safety/4-step-sterilisation",
+    );
+  });
+
+  it("drops empty segments from stray slashes", () => {
+    expect(slugifyPath("/about//values/")).toBe("about/values");
+  });
+
+  it("handles a single segment like slugify", () => {
+    expect(slugifyPath("About Us")).toBe("about-us");
   });
 });

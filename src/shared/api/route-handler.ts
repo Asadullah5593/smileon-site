@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ValidationError } from "@/shared/api/errors";
 import { toErrorResponse } from "@/shared/api/error-response";
 import { requireAnyPermission, requirePermission, type Viewer } from "@/shared/auth/permissions";
+import { log } from "@/shared/observability/logger";
 import type { PermissionName } from "@/shared/auth/permission-registry";
 
 type Schemas<TBody, TQuery, TParams> = {
@@ -44,6 +45,11 @@ export function createRouteHandler<TBody = undefined, TQuery = undefined, TParam
   handler: (ctx: HandlerContext<TBody, TQuery, TParams>) => Promise<Response>,
 ) {
   return async (req: NextRequest, args?: RouteArgs): Promise<Response> => {
+    // Correlates the access log line, the error log line and the `X-Request-Id`
+    // the caller sees, so a user-reported failure is one grep away.
+    const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+    const startedAt = Date.now();
+
     try {
       let viewer = null as Viewer | null;
       if (options.permission) {
@@ -68,9 +74,34 @@ export function createRouteHandler<TBody = undefined, TQuery = undefined, TParam
         ? parse(options.body, await readJson(req), "body")
         : (undefined as TBody);
 
-      return await handler({ req, body, query, params, viewer: viewer as Viewer });
+      const response = await handler({ req, body, query, params, viewer: viewer as Viewer });
+      response.headers.set("X-Request-Id", requestId);
+
+      log.info("request", {
+        requestId,
+        method: req.method,
+        path: req.nextUrl.pathname,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        actorId: viewer?.id,
+      });
+
+      return response;
     } catch (error) {
-      return toErrorResponse(error);
+      const response = toErrorResponse(error, requestId);
+      response.headers.set("X-Request-Id", requestId);
+
+      log.warn("request failed", {
+        requestId,
+        method: req.method,
+        path: req.nextUrl.pathname,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        // 5xx bodies are deliberately vague; the detail belongs here instead.
+        ...(response.status >= 500 ? { error } : {}),
+      });
+
+      return response;
     }
   };
 }

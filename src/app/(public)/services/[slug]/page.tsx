@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { getPublishedServiceBySlug } from "@/features/services/server/service-repository";
+import { CACHE_TAGS } from "@/shared/content/cache-tags";
 import { htmlToText } from "@/shared/editor/sanitize";
 import { siteUrl } from "@/shared/config/env";
 import { Button } from "@/shared/ui/primitives/button";
@@ -12,7 +13,7 @@ import { JsonLd, breadcrumbSchema, serviceSchema } from "@/shared/seo/json-ld";
 const loadService = unstable_cache(
   (slug: string) => getPublishedServiceBySlug(slug),
   ["service-by-slug"],
-  { tags: ["services"], revalidate: 3600 },
+  { tags: [CACHE_TAGS.services], revalidate: 3600 },
 );
 
 export async function generateMetadata({

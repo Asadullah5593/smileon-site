@@ -16,7 +16,8 @@ export const accessKeys = {
 
 export const rolesApi = {
   list: () => apiFetch<RoleDto[]>("/api/admin/roles"),
-  create: (body: RoleCreateInput) => apiFetch<RoleDto>("/api/admin/roles", { method: "POST", body }),
+  create: (body: RoleCreateInput) =>
+    apiFetch<RoleDto>("/api/admin/roles", { method: "POST", body }),
   update: (id: string, body: RoleUpdateInput) =>
     apiFetch<RoleDto>(`/api/admin/roles/${id}`, { method: "PATCH", body }),
   remove: (id: string) => apiFetch<void>(`/api/admin/roles/${id}`, { method: "DELETE" }),
@@ -25,7 +26,8 @@ export const rolesApi = {
 export const usersApi = {
   list: (params: { page?: number; q?: string; roleId?: string }) =>
     apiFetch<Paginated<UserDto>>(`/api/admin/users${toQueryString(params)}`),
-  create: (body: UserCreateInput) => apiFetch<UserDto>("/api/admin/users", { method: "POST", body }),
+  create: (body: UserCreateInput) =>
+    apiFetch<UserDto>("/api/admin/users", { method: "POST", body }),
   update: (id: string, body: UserUpdateInput) =>
     apiFetch<UserDto>(`/api/admin/users/${id}`, { method: "PATCH", body }),
   remove: (id: string) => apiFetch<void>(`/api/admin/users/${id}`, { method: "DELETE" }),

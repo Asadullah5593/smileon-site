@@ -287,7 +287,8 @@ model Page {
   slug        String        @unique
   title       String
   excerpt     String?       @db.Text
-  /// Array of typed blocks — see `src/features/pages/blocks.ts`.
+  /// Ordered array of typed sections — see `src/features/pages/blocks.ts`.
+  /// Rendered after `bodyHtml`, which remains the page's prose.
   blocks      Json?
   bodyHtml    String?       @db.LongText
   status      PublishStatus @default(DRAFT)

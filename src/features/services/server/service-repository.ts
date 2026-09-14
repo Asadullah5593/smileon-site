@@ -1,5 +1,4 @@
 import "server-only";
-import { revalidateTag } from "next/cache";
 import { prisma } from "@/shared/db/prisma";
 import { paginate } from "@/shared/api/response";
 import { toOrderBy, toSkipTake } from "@/shared/api/list-query";
@@ -8,6 +7,10 @@ import { mediaUrl } from "@/shared/storage";
 import { uniqueSlug } from "@/shared/utils/slug";
 import { sanitizeHtml } from "@/shared/editor/sanitize";
 import { diffOf, recordAudit } from "@/shared/audit/audit-log";
+import { assertCanSetStatus } from "@/shared/auth/publish-guard";
+import { CACHE_TAGS, revalidateContent } from "@/shared/content/cache-tags";
+import { publishedAtOnCreate, publishedAtOnUpdate } from "@/shared/content/publishable";
+import type { Viewer } from "@/shared/auth/permissions";
 import type {
   ServiceCreateInput,
   ServiceDto,
@@ -20,9 +23,12 @@ import type { Prisma } from "@/generated/prisma/client";
  * All Service data access lives here — nothing outside this file talks to
  * `prisma.service` directly. That boundary is what keeps a future move to a
  * standalone API a swap of this module rather than a rewrite.
+ *
+ * This is the reference implementation the other content types copy. Note the
+ * shape: repositories take the full `Viewer`, not just an actor id, because
+ * publishing is a permission check that needs the record's current status —
+ * see `shared/auth/publish-guard`.
  */
-
-export const SERVICES_CACHE_TAG = "services";
 
 const withRelations = {
   image: true,
@@ -82,6 +88,18 @@ export async function listServices(query: ServiceListQuery) {
   return paginate(rows.map(toServiceDto), total, query.page, query.pageSize);
 }
 
+/**
+ * `{ id, title }` pairs for the "linked treatment" selects on testimonials,
+ * gallery cases and the booking form. Every status — an editor linking a
+ * testimonial to a draft treatment is normal.
+ */
+export async function listServiceOptions() {
+  return prisma.service.findMany({
+    select: { id: true, title: true },
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+  });
+}
+
 export async function getServiceById(id: string) {
   const service = await prisma.service.findUnique({ where: { id }, include: withRelations });
   if (!service) throw new NotFoundError("Service");
@@ -97,7 +115,9 @@ export async function getPublishedServiceBySlug(slug: string) {
   return service ? toServiceDto(service) : null;
 }
 
-export async function listPublishedServices(options: { featuredOnly?: boolean; limit?: number } = {}) {
+export async function listPublishedServices(
+  options: { featuredOnly?: boolean; limit?: number } = {},
+) {
   const rows = await prisma.service.findMany({
     where: {
       status: "PUBLISHED",
@@ -110,7 +130,10 @@ export async function listPublishedServices(options: { featuredOnly?: boolean; l
   return rows.map(toServiceDto);
 }
 
-export async function createService(input: ServiceCreateInput, actorId: string) {
+export async function createService(input: ServiceCreateInput, viewer: Viewer) {
+  // Creating something already live is a publish, not just a create.
+  assertCanSetStatus(viewer, "services", input.status);
+
   const slug = await uniqueSlug(input.slug || input.title, slugTaken);
 
   const service = await prisma.service.create({
@@ -118,13 +141,13 @@ export async function createService(input: ServiceCreateInput, actorId: string) 
       ...toWriteData(input),
       title: input.title,
       slug,
-      publishedAt: input.status === "PUBLISHED" ? new Date() : null,
+      publishedAt: publishedAtOnCreate(input.status),
     },
     include: withRelations,
   });
 
   await recordAudit({
-    actorId,
+    actorId: viewer.id,
     action: "services.create",
     entity: "Service",
     entityId: service.id,
@@ -135,55 +158,50 @@ export async function createService(input: ServiceCreateInput, actorId: string) 
   return toServiceDto(service);
 }
 
-export async function updateService(id: string, input: ServiceUpdateInput, actorId: string) {
+export async function updateService(id: string, input: ServiceUpdateInput, viewer: Viewer) {
   const existing = await prisma.service.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError("Service");
+
+  // Checked before any write, and against the record's *current* status, so
+  // editing an already-published service stays an ordinary update.
+  assertCanSetStatus(viewer, "services", input.status, existing.status);
 
   const slug =
     input.slug && input.slug !== existing.slug
       ? await uniqueSlug(input.slug, (candidate) => slugTaken(candidate, id))
       : undefined;
 
-  // Stamp publishedAt the first time a draft goes live; keep the original date
-  // on subsequent edits so "published on" doesn't jump around.
-  const goingLive = input.status === "PUBLISHED" && existing.status !== "PUBLISHED";
-
   const service = await prisma.service.update({
     where: { id },
     data: {
       ...toWriteData(input),
       ...(slug ? { slug } : {}),
-      ...(goingLive ? { publishedAt: existing.publishedAt ?? new Date() } : {}),
+      ...publishedAtOnUpdate(input.status, existing),
     },
     include: withRelations,
   });
 
   await recordAudit({
-    actorId,
+    actorId: viewer.id,
     action: "services.update",
     entity: "Service",
     entityId: id,
     summary: service.title,
-    diff: diffOf(existing as unknown as Record<string, unknown>, service as unknown as Record<string, unknown>),
+    diff: diffOf(
+      existing as unknown as Record<string, unknown>,
+      service as unknown as Record<string, unknown>,
+    ),
   });
   invalidate();
 
   return toServiceDto(service);
 }
 
-export async function setServiceStatus(
-  id: string,
-  status: "DRAFT" | "PUBLISHED" | "ARCHIVED",
-  actorId: string,
-) {
-  return updateService(id, { status }, actorId);
-}
-
-export async function deleteService(id: string, actorId: string) {
+export async function deleteService(id: string, viewer: Viewer) {
   const service = await prisma.service.delete({ where: { id } });
 
   await recordAudit({
-    actorId,
+    actorId: viewer.id,
     action: "services.delete",
     entity: "Service",
     entityId: id,
@@ -219,5 +237,5 @@ async function slugTaken(slug: string, exceptId?: string) {
 
 /** Drop the cached public pages so an edit is live immediately. */
 function invalidate() {
-  revalidateTag(SERVICES_CACHE_TAG, "max");
+  revalidateContent(CACHE_TAGS.services);
 }

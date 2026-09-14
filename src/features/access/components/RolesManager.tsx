@@ -146,9 +146,7 @@ export function RolesManager() {
   return (
     <div className="space-y-4">
       <Can permission="roles.create">
-        <Button
-          onClick={() => setDraft({ id: null, name: "", description: "", permissions: [] })}
-        >
+        <Button onClick={() => setDraft({ id: null, name: "", description: "", permissions: [] })}>
           <Plus className="size-4" /> New role
         </Button>
       </Can>
