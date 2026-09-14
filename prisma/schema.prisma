@@ -1,0 +1,679 @@
+// SmileOn — CMS + public site schema.
+//
+// Conventions:
+//   * `cuid()` string ids everywhere so ids are safe to expose in URLs.
+//   * Publishable content carries `status` + `publishedAt` and the four SEO
+//     columns (seoTitle / seoDescription / ogImageId / noIndex).
+//   * Access control is fully dynamic: permissions live in the DB, are synced
+//     from `src/shared/auth/permission-registry.ts`, and are attached to users
+//     through roles (plus optional per-user ALLOW/DENY overrides).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String?   @db.Text
+  image        String?   @db.Text
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  // Bumped whenever this user's roles/permissions change so live sessions
+  // re-resolve their access instead of trusting a stale token.
+  permissionsVersion Int @default(0)
+
+  accounts        Account[]
+  sessions        Session[]
+  roles           UserRole[]           @relation("UserRoleUser")
+  assignedRoles   UserRole[]           @relation("UserRoleAssigner")
+  permissions     UserPermission[]
+  resetTokens     PasswordResetToken[]
+  invitationsSent Invitation[]         @relation("InvitationInviter")
+  media           Media[]
+  posts           Post[]
+  auditLogs       AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  email       String
+  tokenHash   String    @unique
+  roleIds     Json
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  invitedBy User @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@map("invitations")
+}
+
+// ---------------------------------------------------------------------------
+// RBAC
+// ---------------------------------------------------------------------------
+
+model Role {
+  id           String  @id @default(cuid())
+  name         String
+  slug         String  @unique
+  description  String? @db.Text
+  // System roles ship with the app and cannot be deleted from the UI.
+  isSystem     Boolean @default(false)
+  // A super-admin role short-circuits every permission check.
+  isSuperAdmin Boolean @default(false)
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  // Canonical `resource.action` name, e.g. "services.update".
+  name        String  @unique
+  resource    String
+  action      String
+  group       String
+  description String? @db.Text
+
+  roles RolePermission[]
+  users UserPermission[]
+
+  createdAt DateTime @default(now())
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId       String
+  roleId       String
+  assignedById String?
+  assignedAt   DateTime @default(now())
+
+  user       User  @relation("UserRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("UserRoleAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([assignedById])
+  @@map("user_roles")
+}
+
+/// Per-user override layered on top of role-derived permissions.
+/// DENY always wins over an ALLOW inherited from a role.
+model UserPermission {
+  userId       String
+  permissionId String
+  effect       PermissionEffect @default(ALLOW)
+  createdAt    DateTime         @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+  @@map("user_permissions")
+}
+
+enum PermissionEffect {
+  ALLOW
+  DENY
+}
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  actorId  String?
+  action   String
+  entity   String
+  entityId String?
+  summary  String? @db.Text
+  diff     Json?
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Media
+// ---------------------------------------------------------------------------
+
+model Media {
+  id           String  @id @default(cuid())
+  // Storage key, relative to the active driver's root (e.g. "2026/08/x.webp").
+  key          String  @unique
+  thumbnailKey String?
+  originalName String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  alt          String? @db.Text
+  caption      String? @db.Text
+  folder       String  @default("uploads")
+  uploadedById String?
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  ogPages       Page[]        @relation("PageOgImage")
+  ogPosts       Post[]        @relation("PostOgImage")
+  postCovers    Post[]        @relation("PostCover")
+  serviceImages Service[]     @relation("ServiceImage")
+  ogServices    Service[]     @relation("ServiceOgImage")
+  teamPhotos    TeamMember[]
+  testimonials  Testimonial[]
+  galleryBefore GalleryCase[] @relation("GalleryBefore")
+  galleryAfter  GalleryCase[] @relation("GalleryAfter")
+  banners       Banner[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([folder])
+  @@map("media")
+}
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Page {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String?       @db.Text
+  /// Ordered array of typed sections — see `src/features/pages/blocks.ts`.
+  /// Rendered after `bodyHtml`, which remains the page's prose.
+  blocks      Json?
+  bodyHtml    String?       @db.LongText
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  seoTitle       String?
+  seoDescription String? @db.Text
+  ogImageId      String?
+  noIndex        Boolean @default(false)
+
+  ogImage Media? @relation("PageOgImage", fields: [ogImageId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([ogImageId])
+  @@map("pages")
+}
+
+model Post {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String?       @db.Text
+  bodyHtml    String?       @db.LongText
+  coverId     String?
+  authorId    String?
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+  readMinutes Int?
+
+  seoTitle       String?
+  seoDescription String? @db.Text
+  ogImageId      String?
+  noIndex        Boolean @default(false)
+
+  cover      Media?         @relation("PostCover", fields: [coverId], references: [id], onDelete: SetNull)
+  ogImage    Media?         @relation("PostOgImage", fields: [ogImageId], references: [id], onDelete: SetNull)
+  author     User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  categories PostCategory[]
+  tags       PostTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([authorId])
+  @@index([coverId])
+  @@index([ogImageId])
+  @@map("posts")
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  sortOrder   Int     @default(0)
+
+  posts PostCategory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  posts PostTag[]
+
+  createdAt DateTime @default(now())
+
+  @@map("tags")
+}
+
+model PostCategory {
+  postId     String
+  categoryId String
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+  @@map("post_categories")
+}
+
+model PostTag {
+  postId String
+  tagId  String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("post_tags")
+}
+
+/// Treatments offered by the clinic. This is the reference resource the rest
+/// of the CMS resources are modelled on — see `src/features/services/`.
+model Service {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  summary     String?       @db.Text
+  bodyHtml    String?       @db.LongText
+  icon        String?
+  imageId     String?
+  categoryId  String?
+  priceFrom   Decimal?      @db.Decimal(10, 2)
+  duration    String?
+  isFeatured  Boolean       @default(false)
+  sortOrder   Int           @default(0)
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  seoTitle       String?
+  seoDescription String? @db.Text
+  ogImageId      String?
+  noIndex        Boolean @default(false)
+
+  image        Media?           @relation("ServiceImage", fields: [imageId], references: [id], onDelete: SetNull)
+  ogImage      Media?           @relation("ServiceOgImage", fields: [ogImageId], references: [id], onDelete: SetNull)
+  category     ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  testimonials Testimonial[]
+  galleryCases GalleryCase[]
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+  @@index([categoryId])
+  @@index([imageId])
+  @@index([ogImageId])
+  @@map("services")
+}
+
+model ServiceCategory {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  sortOrder   Int     @default(0)
+
+  services Service[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("service_categories")
+}
+
+model TeamMember {
+  id             String        @id @default(cuid())
+  slug           String        @unique
+  name           String
+  designation    String?
+  bioHtml        String?       @db.LongText
+  photoId        String?
+  qualifications Json?
+  specialties    Json?
+  socials        Json?
+  sortOrder      Int           @default(0)
+  status         PublishStatus @default(DRAFT)
+
+  photo Media? @relation(fields: [photoId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+  @@index([photoId])
+  @@map("team_members")
+}
+
+model Testimonial {
+  id          String        @id @default(cuid())
+  patientName String
+  quote       String        @db.Text
+  rating      Int           @default(5)
+  photoId     String?
+  serviceId   String?
+  sortOrder   Int           @default(0)
+  status      PublishStatus @default(DRAFT)
+
+  photo   Media?   @relation(fields: [photoId], references: [id], onDelete: SetNull)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+  @@index([photoId])
+  @@index([serviceId])
+  @@map("testimonials")
+}
+
+model FaqItem {
+  id         String        @id @default(cuid())
+  question   String        @db.Text
+  answerHtml String        @db.Text
+  group      String        @default("general")
+  sortOrder  Int           @default(0)
+  status     PublishStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, group, sortOrder])
+  @@map("faq_items")
+}
+
+model GalleryCase {
+  id            String        @id @default(cuid())
+  title         String
+  description   String?       @db.Text
+  beforeMediaId String?
+  afterMediaId  String?
+  serviceId     String?
+  sortOrder     Int           @default(0)
+  status        PublishStatus @default(DRAFT)
+
+  beforeMedia Media?   @relation("GalleryBefore", fields: [beforeMediaId], references: [id], onDelete: SetNull)
+  afterMedia  Media?   @relation("GalleryAfter", fields: [afterMediaId], references: [id], onDelete: SetNull)
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+  @@index([serviceId])
+  @@index([beforeMediaId])
+  @@index([afterMediaId])
+  @@map("gallery_cases")
+}
+
+model Location {
+  id           String   @id @default(cuid())
+  name         String
+  address      String   @db.Text
+  city         String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  mapEmbedUrl  String?  @db.Text
+  latitude     Decimal? @db.Decimal(10, 7)
+  longitude    Decimal? @db.Decimal(10, 7)
+  openingHours Json?
+  isPrimary    Boolean  @default(false)
+  sortOrder    Int      @default(0)
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("locations")
+}
+
+enum AppointmentStatus {
+  NEW
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model Appointment {
+  id            String            @id @default(cuid())
+  name          String
+  email         String?
+  phone         String
+  preferredDate DateTime?
+  preferredTime String?
+  serviceId     String?
+  locationId    String?
+  message       String?           @db.Text
+  status        AppointmentStatus @default(NEW)
+  internalNote  String?           @db.Text
+  source        String            @default("website")
+
+  service  Service?  @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([serviceId])
+  @@index([locationId])
+  @@map("appointments")
+}
+
+model ContactMessage {
+  id      String  @id @default(cuid())
+  name    String
+  email   String
+  phone   String?
+  subject String?
+  message String  @db.Text
+  isRead  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([isRead, createdAt])
+  @@map("contact_messages")
+}
+
+// ---------------------------------------------------------------------------
+// Site chrome
+// ---------------------------------------------------------------------------
+
+model Menu {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  items MenuItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("menus")
+}
+
+model MenuItem {
+  id        String  @id @default(cuid())
+  menuId    String
+  parentId  String?
+  label     String
+  href      String
+  target    String?
+  sortOrder Int     @default(0)
+
+  menu     Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parent   MenuItem?  @relation("MenuItemChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[] @relation("MenuItemChildren")
+
+  @@index([menuId, sortOrder])
+  @@index([parentId])
+  @@map("menu_items")
+}
+
+model Banner {
+  id         String  @id @default(cuid())
+  heading    String
+  subheading String? @db.Text
+  mediaId    String?
+  ctaLabel   String?
+  ctaHref    String?
+  sortOrder  Int     @default(0)
+  isActive   Boolean @default(true)
+
+  media Media? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@index([mediaId])
+  @@map("banners")
+}
+
+/// Key/value singleton rows — brand, contact details, socials, analytics ids.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model Redirect {
+  id        String  @id @default(cuid())
+  source    String  @unique
+  target    String
+  permanent Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@map("redirects")
+}

@@ -1,0 +1,44 @@
+# Keep the build context small and free of secrets.
+#
+# The builder stage runs `COPY . .`, so anything not excluded here lands in an
+# image layer. `.env` in particular holds DATABASE_URL and AUTH_SECRET.
+
+# secrets — never in an image layer
+.env
+.env.*
+!.env.example
+*.pem
+
+# installed + generated
+node_modules
+.next
+out
+build
+src/generated
+
+# vcs & tooling
+.git
+.gitignore
+.github
+.vscode
+.idea
+.claude
+
+# uploads are a runtime volume, not build input
+public/uploads/*
+!public/uploads/.gitkeep
+
+# tests & reports
+e2e
+test-results
+playwright-report
+coverage
+*.tsbuildinfo
+
+# docs & local compose
+docs
+README.md
+compose.yaml
+Dockerfile
+.dockerignore
+npm-debug.log*
