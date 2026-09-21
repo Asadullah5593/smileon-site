@@ -21,6 +21,8 @@ export const clinic = {
   email: "info@smileon.pk",
   hours: "Mon-Sat: 11:00am - 9:00pm | Sun: 10:00am - 6:00pm",
   hoursLines: ["Mon-Sat: 11:00am - 9:00pm", "Sun: 10:00am - 6:00pm"],
+  // Fits beside the phone number in a single 44px topbar row on phones.
+  hoursShort: "Mon–Sat 11am–9pm · Sun 10am–6pm",
   whatsapp: "https://wa.me/923311066666",
   mapsUrl: "https://maps.app.goo.gl/KZ61Teu9av2QARtf8",
 } as const;

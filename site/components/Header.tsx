@@ -21,16 +21,17 @@ export function Header() {
     <header className="relative z-50">
       {/* Topbar — full bleed teal */}
       <div className="bg-brand text-white">
-        <div className="shell flex h-[44px] items-center justify-between gap-4 text-[12px] font-medium md:h-[52px] md:text-[14px] xl:h-[60px] xl:text-[16px]">
+        <div className="shell flex h-[44px] items-center justify-between gap-3 text-[11px] font-medium md:h-[52px] md:gap-4 md:text-[14px] xl:h-[60px] xl:text-[16px]">
           <span className="hidden items-center gap-2.5 md:inline-flex">
             <Image src="/icons/pin.svg" alt="" width={20} height={24} aria-hidden className="w-[13px] xl:w-[15px]" />
             {clinic.address}
           </span>
-          <span className="hidden items-center gap-2.5 lg:inline-flex">
+          <span className="inline-flex items-center gap-2 md:hidden md:gap-2.5 lg:inline-flex">
             <Image src="/icons/clock.svg" alt="" width={23} height={22} aria-hidden className="w-[14px] xl:w-[17px]" />
-            {clinic.hours}
+            <span className="whitespace-nowrap lg:hidden">{clinic.hoursShort}</span>
+            <span className="hidden lg:inline">{clinic.hours}</span>
           </span>
-          <a href={`tel:${clinic.phone}`} className="ml-auto inline-flex items-center gap-2.5 hover:underline lg:ml-0">
+          <a href={`tel:${clinic.phone}`} className="ml-auto inline-flex items-center gap-2 hover:underline md:gap-2.5 lg:ml-0">
             <Image src="/icons/phone.svg" alt="" width={19} height={21} aria-hidden className="w-[13px] xl:w-[15px]" />
             {clinic.phone}
           </a>
@@ -103,7 +104,7 @@ export function Header() {
         id="mobile-nav"
         className={cn(
           "border-hairline overflow-hidden border-b bg-white transition-[max-height] duration-300 lg:hidden",
-          open ? "max-h-[460px]" : "max-h-0",
+          open ? "max-h-[600px]" : "max-h-0",
         )}
       >
         <nav className="shell flex flex-col py-2" aria-label="Mobile">
@@ -117,6 +118,25 @@ export function Header() {
               {item.label}
             </Link>
           ))}
+          {/* Address and full hours moved here from the topbar, where three
+              rows of small type crowded the logo. Navy icon variants: the
+              topbar's white ones would vanish on this white panel. */}
+          <div className="text-muted mt-1 space-y-2 pt-3 pb-4 text-[13px] leading-[1.5] font-semibold">
+            <p className="flex items-start gap-2.5">
+              <Image src="/icons/pin-alt.svg" alt="" width={16} height={18} aria-hidden className="mt-[3px] w-[13px] shrink-0" />
+              {clinic.address}
+            </p>
+            <p className="flex items-start gap-2.5">
+              <Image src="/icons/clock-alt.svg" alt="" width={18} height={17} aria-hidden className="mt-[3px] w-[13px] shrink-0" />
+              <span>
+                {clinic.hoursLines.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
+              </span>
+            </p>
+          </div>
           <Link
             href="#contact"
             onClick={() => setOpen(false)}
