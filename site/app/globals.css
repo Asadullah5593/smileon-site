@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Tokens sampled from the Figma frame `SmileOn Home page1` (1440×4063).
+   Every value below was read off the design — the brand is TEAL, and the
+   navy shades are ink, not fills.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Brand teal */
+  --brand: #0399b2; /* topbar, primary buttons, active tabs, badges */
+  --brand-alt: #039bb0; /* header CTA, footer body */
+  --brand-deep: #03899c; /* footer rule */
+
+  /* Ink */
+  --ink: #0b057d; /* headings, card titles */
+  --ink-body: #03328f; /* hero body copy, stats */
+  --ink-eyebrow: #002689; /* eyebrow, nav links */
+  --muted: #555894; /* subtitles, blurbs, FAQ */
+  --author: #0c3faf; /* review attribution */
+  --link: #4590e6; /* "Get directions" */
+
+  --whatsapp: #0e9a51;
+
+  /* Surfaces */
+  --hero-bg: #ebf8fe;
+  --stats-bg: #f3fafe;
+  --band: #ddf1fa; /* overseas + patient-care bands */
+  --panel: #f3f9fe; /* featured case, inactive result tabs */
+  --tab-bg: #e7f6fd;
+  --tab-border: #bad1e7;
+  --card-bg: #fefefe;
+  --card-border: #afcee7;
+  --hairline: #d2e5f8;
+}
+
+@theme {
+  /*
+   * The design is a 1440px canvas, so every exact px value in the components
+   * is written against `xl:`. Tailwind's default 1280 fires 160px early and
+   * overflows; 1440 exactly would miss a 1440px window, because a classic
+   * scrollbar leaves only ~1425px of content. 1400 covers both.
+   */
+  --breakpoint-xl: 87.5rem; /* 1400px */
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-script: var(--font-kaushan);
+
+  --color-brand: var(--brand);
+  --color-brand-alt: var(--brand-alt);
+  --color-brand-deep: var(--brand-deep);
+  --color-ink: var(--ink);
+  --color-ink-body: var(--ink-body);
+  --color-ink-eyebrow: var(--ink-eyebrow);
+  --color-muted: var(--muted);
+  --color-author: var(--author);
+  --color-link: var(--link);
+  --color-whatsapp: var(--whatsapp);
+
+  --color-hero-bg: var(--hero-bg);
+  --color-stats-bg: var(--stats-bg);
+  --color-band: var(--band);
+  --color-panel: var(--panel);
+  --color-tab-bg: var(--tab-bg);
+  --color-tab-border: var(--tab-border);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-hairline: var(--hairline);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 10rem;
+  }
+
+  body {
+    @apply bg-white text-[#555894] antialiased;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    /* The design is italic end to end; the script flourish opts back out. */
+    font-style: italic;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-ink;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * The design is a fixed 1440px canvas with content inset 48px on each side —
+   * content spans x=48…1392, i.e. 1344px wide. The page itself is capped at
+   * 1440 and centred, so the coloured bands run edge to edge and only the
+   * content is inset. Below 1440 the inset shrinks rather than the content
+   * being squeezed by a second layer of padding.
+   */
+  .shell {
+    @apply mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-12;
+  }
+
+  /* The heading pair that opens most sections: 37px bold + 25px medium. */
+  .h-section {
+    @apply text-ink text-[26px] leading-[1.18] font-bold tracking-[-1px] md:text-[32px] xl:text-[37px] xl:leading-none;
+  }
+
+  .sub-section {
+    @apply text-muted mt-3 text-[17px] leading-[1.4] font-medium md:text-[20px] xl:mt-[7px] xl:text-[25px] xl:leading-none;
+  }
+
+  /* "View all treatments →" — 20px bold ink, right aligned in the header row. */
+  .link-more {
+    @apply text-ink inline-flex items-center gap-2 text-[15px] font-bold tracking-[-1px] transition-opacity hover:opacity-70 md:text-[17px] xl:text-[20px];
+  }
+}
