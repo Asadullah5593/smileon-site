@@ -78,8 +78,6 @@
   body {
     @apply bg-white text-[#555894] antialiased;
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-    /* The design is italic end to end; the script flourish opts back out. */
-    font-style: italic;
   }
 
   h1,
