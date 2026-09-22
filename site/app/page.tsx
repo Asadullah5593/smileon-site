@@ -1,5 +1,6 @@
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { MobileActionBar } from "@/components/MobileActionBar";
 import { Dentists } from "@/components/sections/Dentists";
 import { Faq } from "@/components/sections/Faq";
 import { FindYourSolution } from "@/components/sections/FindYourSolution";
@@ -24,6 +25,7 @@ export default function HomePage() {
         <PatientCare />
       </main>
       <Footer />
+      <MobileActionBar />
     </>
   );
 }
