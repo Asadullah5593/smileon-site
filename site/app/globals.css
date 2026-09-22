@@ -87,6 +87,17 @@
     @apply text-ink;
   }
 
+  /*
+   * Tailwind v4's preflight sets buttons to `cursor: default`, unlike v3.
+   * Every button here is a real control (tabs, FAQ disclosures, the menu
+   * toggle), so restore the pointer — minus disabled ones, which should keep
+   * the default arrow.
+   */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
